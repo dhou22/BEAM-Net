@@ -1,0 +1,18 @@
+[project]
+name = "beam-net"
+version = "0.1.0"
+description = "BEAM-Net: Bayesian Event-Driven Attentional Memory Networks"
+authors = [{name = "Dhouha Meliane", email = "dhouha.meliane@esprit.tn"}]
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+[project.urls]
+Repository = "https://github.com/dhou22/beam-net"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["beam_net*"]

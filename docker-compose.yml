@@ -1,0 +1,317 @@
+
+# BEAM-Net Infrastructure — Docker Compose
+# =========================================
+# Production-grade composition for the BEAM-Net experimental platform.
+#
+# All credentials and configuration are externalized to the `.env` file.
+# See .env for documentation of each variable.
+#
+# Services (dependency order):
+#   1. postgres       → Metadata + metrics database
+#   2. minio          → S3-compatible artifact store
+#   3. minio-init     → Bucket creation (one-shot)
+#   4. db-migrate     → Schema migrations (one-shot)
+#   5. mlflow         → Experiment tracking server
+#   6. airflow-init   → Airflow DB setup + admin user (one-shot)
+#   7. airflow-webserver → Airflow UI
+#   8. airflow-scheduler → DAG execution engine
+#   9. beam-net       → Main compute container
+#
+# Network: beam-net-network (bridge, isolated from host)
+# Volumes: postgres_data, minio_data (persistent across restarts)
+
+
+
+# =============================================================================
+# ANCHORS — Shared Airflow Configuration
+# =============================================================================
+# Airflow services (init, webserver, scheduler) share the same image, env,
+# and volume mounts. Defined once as a YAML anchor to avoid duplication.
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  env_file: .env
+  environment:
+    AIRFLOW__CORE__EXECUTOR: ${AIRFLOW_EXECUTOR}
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB_AIRFLOW}
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW_LOAD_EXAMPLES}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./src:/opt/airflow/src
+    - ./configs:/opt/airflow/configs
+    - ./results:/opt/airflow/results
+    - ./data:/opt/airflow/data
+  depends_on:
+    postgres:
+      condition: service_healthy
+    minio:
+      condition: service_started
+    mlflow:
+      condition: service_started
+  networks:
+    - beam-net-network
+
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # POSTGRES — Metadata + Analytics Database
+  # ---------------------------------------------------------------------------
+  # Hosts three logical databases:
+  #   - ${POSTGRES_DB_AIRFLOW} : Airflow DAG metadata
+  #   - ${POSTGRES_DB_MLFLOW}  : MLflow experiment tracking backend
+  #   - ${POSTGRES_DB_METRICS} : BEAM-Net custom analytics schema
+  #
+  # Schema initialization:
+  #   - sql/init/*.sql runs alphabetically on empty volume (creates databases)
+  #   - sql/migrations/*.sql applied by db-migrate service (creates tables)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB_AIRFLOW}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init:/docker-entrypoint-initdb.d:ro
+      - ./sql/migrations:/sql/migrations:ro
+      - ./sql/queries:/sql/queries:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beam -d airflow"]
+      interval: 5s
+      retries: 5
+      
+    networks:
+      - beam-net-network
+
+
+  # ---------------------------------------------------------------------------
+  # MINIO — S3-Compatible Object Store
+  # ---------------------------------------------------------------------------
+  # Stores MLflow artifacts, datasets, and generated reports.
+  # Console UI available at http://localhost:${MINIO_CONSOLE_PORT}
+  # API endpoint: http://localhost:${MINIO_API_PORT}
+  # ---------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    env_file: .env
+    command: server /data --console-address ":${MINIO_CONSOLE_PORT}"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_API_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - beam-net-network
+
+
+  # ---------------------------------------------------------------------------
+  # MINIO-INIT — Bucket Bootstrap (One-Shot)
+  # ---------------------------------------------------------------------------
+  # Creates the three buckets needed for BEAM-Net:
+  #   - ${S3_BUCKET_MLFLOW}   : MLflow artifacts
+  #   - ${S3_BUCKET_DATA}     : Datasets
+  #   - ${S3_BUCKET_RESULTS}  : Final reports and plots
+  #
+  # Exits after bucket creation. Safe to re-run (--ignore-existing).
+  # ---------------------------------------------------------------------------
+  minio-init:
+    image: minio/mc:latest
+    env_file: .env
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing local/mlflow-artifacts;
+      mc mb --ignore-existing local/beam-net-data;
+      mc mb --ignore-existing local/beam-net-results;
+      echo 'MinIO buckets ready.';
+      exit 0;
+      "
+    networks:
+      - beam-net-network
+
+
+  # ---------------------------------------------------------------------------
+  # DB-MIGRATE — Schema Migration Runner (One-Shot)
+  # ---------------------------------------------------------------------------
+  # Applies sql/migrations/*.sql in alphabetical order against beam_metrics.
+  # Runs every time `docker compose up` is called. Idempotent via
+  # `CREATE TABLE IF NOT EXISTS` and `INSERT ... ON CONFLICT DO NOTHING`.
+  # ---------------------------------------------------------------------------
+  db-migrate:
+    image: postgres:15-alpine
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./sql/migrations:/migrations:ro
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    entrypoint: >
+      /bin/sh -c "
+      for f in /migrations/*.sql; do
+        echo 'Applying migration:' $$f;
+        psql -h postgres -U beam -d beam_metrics -f $$f || exit 1;
+      done;
+      echo 'All migrations applied successfully.';
+      "
+    networks:
+      - beam-net-network
+
+
+  # ---------------------------------------------------------------------------
+  # MLFLOW — Experiment Tracking Server
+  # ---------------------------------------------------------------------------
+  # Tracks all BEAM-Net experiments: hyperparameters, metrics, artifacts.
+  # UI: http://localhost:${MLFLOW_PORT}
+  # Backend: PostgreSQL (${POSTGRES_DB_MLFLOW})
+  # Artifacts: MinIO (s3://${S3_BUCKET_MLFLOW}/)
+  # ---------------------------------------------------------------------------
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    command: >
+      mlflow server
+      --backend-store-uri postgresql+psycopg2://beam:beam_pass@postgres:5432/mlflow
+      --default-artifact-root s3://mlflow-artifacts/
+      --host 0.0.0.0
+      --port 5000
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - beam-net-network
+    
+
+
+  # ---------------------------------------------------------------------------
+  # AIRFLOW-INIT — DAG DB Bootstrap + Admin User (One-Shot)
+  # ---------------------------------------------------------------------------
+  # Initializes Airflow's metadata schema and creates the admin account.
+  # Runs once per volume lifetime, then exits.
+  # Admin login: ${AIRFLOW_ADMIN_USER} / ${AIRFLOW_ADMIN_PASSWORD}
+  # ---------------------------------------------------------------------------
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username ${AIRFLOW_ADMIN_USER} \
+          --password ${AIRFLOW_ADMIN_PASSWORD} \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email ${AIRFLOW_ADMIN_EMAIL}
+    restart: "no"
+
+
+  # ---------------------------------------------------------------------------
+  # AIRFLOW-WEBSERVER — Pipeline Monitoring UI
+  # ---------------------------------------------------------------------------
+  # Web interface for DAG management, task inspection, log viewing.
+  # UI: http://localhost:${AIRFLOW_PORT}
+  # ---------------------------------------------------------------------------
+  airflow-webserver:
+    <<: *airflow-common
+    command: airflow webserver --port 8080
+    ports:
+      - "${AIRFLOW_PORT}:8080"
+    restart: always
+
+
+  # ---------------------------------------------------------------------------
+  # AIRFLOW-SCHEDULER — DAG Execution Engine
+  # ---------------------------------------------------------------------------
+  # Detects triggered DAGs, schedules task execution, manages retries.
+  # No exposed port — internal service only.
+  # ---------------------------------------------------------------------------
+  airflow-scheduler:
+    <<: *airflow-common
+    command: airflow scheduler
+    restart: always
+
+
+  # ---------------------------------------------------------------------------
+  # BEAM-NET — Main Compute Container
+  # ---------------------------------------------------------------------------
+  # Interactive container for running training, evaluation, and report
+  # generation scripts. Exposes no ports — access via `docker compose exec`.
+  #
+  # Volume mounts:
+  #   - ./src     : Source code (hot-reload for development)
+  #   - ./configs : Experiment configuration
+  #   - ./results : Generated outputs (read-write)
+  #   - ./data    : Dataset cache
+  #   - ./sql     : Read-only access to queries for analysis scripts
+  # ---------------------------------------------------------------------------
+  beam-net:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      BEAM_DB_URI: ${BEAM_DB_URI}
+      BEAM_CONFIG_PATH: ${BEAM_CONFIG_PATH}
+    volumes:
+      - ./src:/workspace/src
+      - ./configs:/workspace/configs
+      - ./results:/workspace/results
+      - ./data:/workspace/data
+      - ./sql:/workspace/sql:ro
+    working_dir: /workspace
+    command: tail -f /dev/null
+    networks:
+      - beam-net-network
+
+
+# =============================================================================
+# PERSISTENT VOLUMES
+# =============================================================================
+# Survive `docker compose down`. Remove with `docker compose down -v`.
+
+volumes:
+  postgres_data:
+    name: beam-net-postgres-data
+  minio_data:
+    name: beam-net-minio-data
+
+
+# =============================================================================
+# NETWORK
+# =============================================================================
+# Isolated bridge network. Services communicate via service name (e.g., 'mlflow:5000').
+
+networks:
+  beam-net-network:
+    name: ${COMPOSE_NETWORK}
+    driver: bridge

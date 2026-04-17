@@ -1,0 +1,26 @@
+{
+  "BEAM-Net": {
+    "accuracy": 0.4155,
+    "ece": 0.08109213411808014,
+    "sparsity": 0.09793460141321655,
+    "epistemic_unc": 658.8124863934365,
+    "aleatoric_unc": -654.394901737286,
+    "energy_nJ": 465.80736000000013
+  },
+  "ANN-MLP": {
+    "accuracy": 0.9889,
+    "ece": 0.00449013989418745,
+    "sparsity": -1,
+    "epistemic_unc": -1,
+    "aleatoric_unc": -1,
+    "energy_nJ": 150.0
+  },
+  "Rate-SNN": {
+    "accuracy": 0.9384,
+    "ece": 0.7163568139076233,
+    "sparsity": -1,
+    "epistemic_unc": -1,
+    "aleatoric_unc": -1,
+    "energy_nJ": 25.0
+  }
+}

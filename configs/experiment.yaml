@@ -1,0 +1,96 @@
+# ============================================================================
+# BEAM-Net Experiment Configuration
+# ============================================================================
+# All parameters reference equations from the BEAM-Net paper (Meliane, 2026)
+# and W-TCRL (Fois & Girau, 2023) where applicable.
+# ============================================================================
+
+experiment:
+  name: "beam_net_v1"
+  seed: 42
+  device: "auto"  # auto-detects GPU
+
+# ---- Data ----
+data:
+  dataset: "mnist"          # Options: nmnist, dvs_gesture, n_caltech101
+  data_dir: "./data"
+  batch_size: 64
+  num_workers: 4
+  # Temporal binning for event data
+  time_window_us: 25000      # 25 ms per bin
+  n_time_bins: 10            # Number of temporal bins per sample
+  # Train/val/test split
+  val_fraction: 0.1
+
+# ---- Encoding Layer (§3.1) ----
+encoding:
+  method: "rank_order"       # rank_order | population_latency (W-TCRL inspired)
+  T_ref: 20.0               # Reference time (ms) — Eq. 7
+  tau_spread: 15.0           # Temporal spread constant τ — Eq. 7
+  # Population coding params (from W-TCRL §2.2, Fois & Girau)
+  l_population: 10           # Neurons per input dimension
+  sigma_rf: 0.6              # Receptive field width (Gaussian σ)
+
+# ---- Bayesian LIF Neuron (§3.2) ----
+neuron:
+  tau_m: 10.0                # Membrane time constant (ms) — Eq. 8
+  tau_theta: 50.0            # Threshold adaptation recovery (ms) — Eq. 10
+  theta_0: 1.0               # Base firing threshold
+  delta: 0.5                 # Stochasticity parameter Δ — Eq. 9
+  gamma: 0.1                 # Threshold adaptation strength — Eq. 10
+  w_inh: 2.5                 # Lateral inhibition weight (>2 for convergence) — Prop. 3.3
+  tau_syn: 5.0               # Inhibitory PSC time constant (ms)
+  dt: 0.5                    # Simulation timestep (ms)
+
+# ---- Coincidence Detection (§4.2) ----
+coincidence:
+  tau_s: 3.0                 # Temporal kernel time constant (ms) — Eq. 22
+  dt_max: 5.0                # Coincidence window (ms) — Eq. 22
+                             # Matches NMDA receptor window (Larkum, 2013)
+
+# ---- Dirichlet Attention (§3.3) ----
+attention:
+  alpha_0: 1.0               # Prior concentration — Eq. 12
+  eta: 5.0                   # Evidence scale — Eq. 12
+  n_patterns: 128            # Number of stored patterns (memory slots)
+
+# ---- Bidirectional Inference (§3.4) ----
+inference:
+  lambda_td: 0.1             # Top-down modulation strength — Eq. 16
+  max_iterations: 5          # Max bidirectional iterations L — Theorem 3.6
+  convergence_eps: 0.01      # Convergence threshold ε — Eq. 17
+  n_sim_steps: 50            # Simulation steps per iteration
+
+# ---- Training ----
+training:
+  epochs: 50
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-5
+  optimizer: "adam"
+  scheduler: "cosine"
+  warmup_epochs: 5
+  # STDP-compatible learning (§6.3, Eq. 26)
+  stdp:
+    enabled: true
+    A_plus: 0.01             # LTP amplitude
+    A_minus: 0.012           # LTD amplitude
+    tau_plus: 20.0           # LTP time constant (ms)
+    tau_minus: 20.0          # LTD time constant (ms)
+
+# ---- Evaluation ----
+evaluation:
+  metrics:
+    - accuracy
+    - energy_per_inference    # Eq. 25
+    - sparsity                # Fraction of active neurons (cf. W-TCRL §3.1.2)
+    - uncertainty_calibration # ECE (Expected Calibration Error)
+    - ece_n_bins: 15
+  baselines:
+    - "ann_mlp"              # Standard ANN baseline
+    - "snn_rate"             # Rate-coded SNN (W-TCRL comparison)
+
+# ---- Report ----
+report:
+  output_dir: "./results"
+  format: "pdf"
+  include_latex: true

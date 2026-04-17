@@ -671,7 +671,7 @@ Each task logs to MLflow and updates the Postgres metadata. Failed tasks retry a
 
 ## 11. Experimental Results
  
-> ** Hardware Limitation Disclaimer**
+> **Hardware Limitation Disclaimer**
 >
 > Results below were obtained on a **consumer laptop (CPU-only, no GPU)** with only **50 training epochs** (~2.7 hours). BEAM-Net is architecturally designed for **neuromorphic hardware (Intel Loihi 2)** where spiking dynamics execute in hardware-native parallel at 23.6 pJ per spike. On standard CPU, these dynamics are simulated sequentially, creating significant overhead. The accuracy gap below is expected to narrow substantially with GPU acceleration (200+ epochs), N-MNIST/DVS datasets, hyperparameter optimization, and neuromorphic deployment.
  

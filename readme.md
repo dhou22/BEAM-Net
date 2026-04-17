@@ -9,6 +9,10 @@
 
 *Author: Dhouha Meliane — ESPRIT School of Engineering, Tunisia*
 
+<img width="1536" height="1024" alt="ChatGPT Image Apr 17, 2026, 07_56_11 PM" src="https://github.com/user-attachments/assets/3b0cdd58-a619-485d-9897-6806aa8c61a9" />
+
+<br>
+
 [![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.1-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.11-0194E2?logo=mlflow&logoColor=white)](https://mlflow.org/)

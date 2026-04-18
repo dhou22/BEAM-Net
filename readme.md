@@ -9,7 +9,8 @@
 
 *Author: Dhouha Meliane — Data Science Engineering Student, Intern @Amaris_consulting*
 
-<img width="1536" height="1024" alt="ChatGPT Image Apr 17, 2026, 07_56_11 PM" src="https://github.com/user-attachments/assets/3b0cdd58-a619-485d-9897-6806aa8c61a9" />
+<img width="1187" height="828" alt="image" src="https://github.com/user-attachments/assets/8b2d42c5-5dd7-4a72-9e54-be2c77a0e320" />
+
 
 <br>
 

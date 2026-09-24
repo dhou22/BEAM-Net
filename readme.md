@@ -1,4 +1,4 @@
-# BEAM-Net: Bayesian Event-Driven Attentional Memory Networks
+# Bayesian Event-Driven Attentional Memory Networks for asynchronous DVS events
 
 <div align="center">
 <img width="1252" height="781" alt="DVS" src="https://github.com/user-attachments/assets/471f1017-9d36-4c5d-9cfb-b8bd40749fa5" />

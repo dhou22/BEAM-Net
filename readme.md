@@ -1,13 +1,13 @@
 # Bayesian Event-Driven Attentional Memory Networks for asynchronous DVS events
-
 <div align="center">
-<img width="1252" height="781" alt="DVS" src="https://github.com/user-attachments/assets/471f1017-9d36-4c5d-9cfb-b8bd40749fa5" />
+  <img src="https://github.com/user-attachments/assets/471f1017-9d36-4c5d-9cfb-b8bd40749fa5" alt="DVS event generation" width="600">
+
 
 
 
 **A Principled Framework for Spike-Based Causal Attention with Uncertainty Quantification**
 
-*Author: Dhouha Meliane - Data Science Engineer*
+*Author: Dhouha Meliane - MLOps x Data Engineer*
 
 <br>
 

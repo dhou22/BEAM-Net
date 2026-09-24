@@ -1,16 +1,13 @@
 # BEAM-Net: Bayesian Event-Driven Attentional Memory Networks
 
 <div align="center">
+<img width="1252" height="781" alt="DVS" src="https://github.com/user-attachments/assets/471f1017-9d36-4c5d-9cfb-b8bd40749fa5" />
 
-<!-- BANNER: Replace with your project banner image -->
-<!-- ![BEAM-Net Banner](https://github.com/user-attachments/assets/YOUR_BANNER_ID) -->
+
 
 **A Principled Framework for Spike-Based Causal Attention with Uncertainty Quantification**
 
-*Author: Dhouha Meliane — Data Science Engineering Student, Intern @Amaris_consulting*
-
-<img width="1187" height="828" alt="image" src="https://github.com/user-attachments/assets/8b2d42c5-5dd7-4a72-9e54-be2c77a0e320" />
-
+*Author: Dhouha Meliane - Data Science Engineer*
 
 <br>
 
@@ -77,48 +74,15 @@ BEAM-Net explicitly extends ideas from the W-TCRL paper ( *Enhanced representati
 
 ## 2. Architecture Overview
 
-```
-Input (DVS events or images)
-        │
-        ▼
-┌─────────────────────┐
-│  Temporal Encoder   │  Component 1 (§3.1): Rank-order / population latency coding
-│  temporal_encoder.py│  Eq. 7: t_i(ξ) = T_ref − τ · ξ_i
-└─────────┬───────────┘
-          │ spike times
-          ▼
-┌─────────────────────┐
-│  Coincidence        │  Component 2a (§4.2): Temporal kernel κ(Δt)
-│  Detector           │  Eq. 21–22: S_j(ξ) = Σ w_i · κ(t_i(ξ) − t_i(x_j))
-│  bayesian_lif.py    │
-└─────────┬───────────┘
-          │ similarity scores S_j
-          ▼
-┌─────────────────────┐
-│  Bayesian LIF       │  Component 2b (§3.2): Stochastic threshold firing
-│  Neurons            │  Eq. 8–9: P(spike | V) = σ((V − θ) / Δ)
-│  bayesian_lif.py    │  Prop. 3.3: firing rates → P(cause_j | ξ)
-└─────────┬───────────┘
-          │ firing rates
-          ▼
-┌─────────────────────┐
-│  Dirichlet          │  Component 3 (§3.3): Multi-cause attention
-│  Attention          │  Eq. 12: π ~ Dir(α), α_j = α_0 + η · S_j
-│  dirichlet_attn.py  │  Eqs. 14–15: epistemic + aleatoric uncertainty
-└─────────┬───────────┘
-          │ posterior π
-          ▼
-┌─────────────────────┐
-│  Bidirectional      │  Component 4 (§3.4): Predictive coding loop
-│  Inference Loop     │  Eq. 16: top-down modulation
-│  bidir_inference.py │  Thm. 3.6: convergence in ≤ ⌈3τ_m/τ_s⌉ iterations
-└─────────┬───────────┘
-          │
-          ▼
-    Classification / Reconstruction + Calibrated Uncertainty
-```
+## 2.1 Scientific Architecture
 
----
+<img width="1863" height="726" alt="archi-sc" src="https://github.com/user-attachments/assets/5bdf5338-e360-422e-812a-5f000ceb48b6" />
+
+
+## 2.2 Technical Architecture
+
+<img width="1277" height="776" alt="image" src="https://github.com/user-attachments/assets/af6be414-abe5-4ebb-8e69-05b2d776cd1b" />
+
 
 ## 3. Project Structure
 
@@ -181,14 +145,10 @@ beam-net/
 
 ## 4. Industrial Standards Adopted
 
-### 4.1 Infrastructure as Code
 
-* Entire stack declared in `docker-compose.yml` — reproducible across Windows/Linux/macOS
-* Pinned base images (`postgres:15-alpine`, `python:3.10-slim`) prevent version drift
-* Service healthchecks enforce startup ordering (e.g., Postgres must be `healthy` before Airflow starts)
-* Named volumes (`beam-net-postgres-data`) for easy identification and backup
 
-### 4.2 Twelve-Factor App Compliance
+
+### 4.1 Twelve-Factor App Compliance
 
 The project follows the [Twelve-Factor App](https://12factor.net/) methodology:
 
@@ -207,26 +167,28 @@ The project follows the [Twelve-Factor App](https://12factor.net/) methodology:
 | Logs              | Structured `[Module] message`format, stdout streaming |
 | Admin processes   | Migrations as separate `db-migrate`service            |
 
-### 4.3 Secrets Management
 
-* `.env` contains all credentials, gitignored
-* `.env.example` provides safe-to-commit template with `CHANGE_ME_*` placeholders
-* Variable composition: change `POSTGRES_PASSWORD` once, it propagates everywhere via `${VAR}` interpolation
-* Airflow Fernet key for encrypting connection secrets in metadata DB
-* Production upgrade path: swap `.env` for HashiCorp Vault or AWS Secrets Manager
 
-### 4.4 Database Engineering
+### 4.2 Database Engineering
 
-* **Versioned migrations** following Flyway naming (`V###__description.sql`)
-* **Idempotent scripts** : `CREATE TABLE IF NOT EXISTS`, `INSERT ON CONFLICT DO NOTHING`
-* **Referential integrity** : foreign keys with `ON DELETE CASCADE`
-* **Generated columns** : `is_correct`, `total_pj` computed at storage time
-* **Triggers** : auto-populate `completed_at` timestamps
-* **Partial indexes** : `WHERE status = 'running'` for common dashboard queries
-* **Views for convenience** : `experiment_summary`, `energy_comparison` denormalize common joins
-* **Inline documentation** : every table has `COMMENT ON TABLE` for CIFRE audit trails
+### Dataset 
+<img width="1887" height="427" alt="image" src="https://github.com/user-attachments/assets/505e3940-b4e8-41d0-a5e9-43574348e483" />
 
-### 4.5 Experiment Tracking
+
+
+The experiments reported here use **MNIST** (60 000 training and 10 000 test grayscale images, 28×28, ten classes), loaded through torchvision and converted into spike latencies by the temporal encoder of Eq. (7): each pixel intensity becomes a single spike time, so the static image is turned into a $d$-dimensional latency vector. <br> MNIST is a fallback: BEAM-Net is designed for asynchronous event streams, and Phase 2 targets N-MNIST (Orchard et al., 2015), the neuromorphic recording of the same digits captured with a DVS on a saccadic motion, and **DVSGesture** (Amir et al., 2017) for multi-object temporal scenes
+
+
+
+1. **Versioned migrations** following Flyway naming (`V###__description.sql`)
+2. **Referential integrity** : foreign keys with `ON DELETE CASCADE`
+3. **Generated columns** : `is_correct`, `total_pj` computed at storage time
+4. **Triggers** : auto-populate `completed_at` timestamps
+5. **Partial indexes** : `WHERE status = 'running'` for common dashboard queries
+6. **Views for convenience** : `experiment_summary`, `energy_comparison` denormalize common joins
+7. **Inline documentation** : every table has `COMMENT ON TABLE` for CIFRE audit trails
+
+### 4.3 Experiment Tracking
 <img width="1425" height="446" alt="Capture d&#39;écran 2026-04-17 144108" src="https://github.com/user-attachments/assets/88a0159f-4b4d-48a2-a57f-1115a43b2c2c" />
 
 ---
@@ -237,20 +199,15 @@ The project follows the [Twelve-Factor App](https://12factor.net/) methodology:
 * Every run produces a **run_id** that joins all three systems
 * Git commit hash logged alongside each experiment for full reproducibility
 
-### 4.6 Pipeline Orchestration
+### 4.4 Pipeline Orchestration
 
 Airflow DAG with enforced task dependencies:
 
 <img width="1652" height="492" alt="Capture d&#39;écran 2026-04-17 144147" src="https://github.com/user-attachments/assets/f7ae2a17-2b99-4018-a6e8-b5d972829f27" />
 
-<br>
 
-* Idempotent tasks (safe to re-run)
-* Retry policy: 1 retry, 5-minute backoff
-* Task documentation via `doc` attributes (visible in Airflow UI)
-* Manual trigger only — no accidental scheduled runs
 
-### 4.7 Object Storage Organization
+### 4.5 Object Storage Organization
 
 MinIO buckets follow the  **lakehouse partition convention** : 
 <br>
@@ -274,15 +231,8 @@ s3://beam-net-results/
 
 This **Hive-style partitioning** is read natively by DuckDB, Spark, Athena, and pandas without a catalog service.
 
-### 4.8 Code Quality
 
-* Type hints throughout: `def forward(self, x: torch.Tensor) -> Tuple[...]`
-* NumPy-style docstrings with Parameters/Returns sections
-* Single-responsibility modules
-* No magic numbers — every constant references a paper equation or peer-reviewed source
-* Runtime configuration validation enforcing theoretical constraints (`w_inh > 2.0` per Proposition 3.3)
-
-### 4.9 Observability
+### 4.6 Observability
 
 Three web dashboards out of the box:
 
@@ -292,7 +242,7 @@ Three web dashboards out of the box:
 | Airflow       | http://localhost:8080 | Pipeline status, task logs, retries |
 | MinIO Console | http://localhost:9001 | Artifact browser, bucket management |
 
-### 4.10 Network Isolation
+### 4.7 Network Isolation
 
 All services on a private Docker bridge network (`beam-net-network`). Inter-service communication uses service names (e.g., `http://mlflow:5000`), not localhost. Only documented ports are exposed to the host.
 
@@ -323,6 +273,9 @@ assert w_inh > 2.0, (
 
 ### 5.2 Biological Plausibility Validation
 
+<img width="1104" height="539" alt="bio_artificial_spiking" src="https://github.com/user-attachments/assets/e1d8cfc7-ed0c-421c-93ff-41732ba86ca2" />
+
+
 Hyperparameters constrained to biologically observed ranges with peer-reviewed citations:
 
 | Parameter               | Value     | Biological Source     |
@@ -349,16 +302,16 @@ Every theorem in the paper has a corresponding empirical test:
 
 Three models evaluated on identical data, splits, and training budgets:
 
-* **BEAM-Net** — the proposed architecture
-* **ANN-MLP** — deterministic baseline matching GPU attention (Table 1 row)
-* **Rate-coded SNN** — temporal coding control (inspired by Tavanaei et al., 2018)
+1. **BEAM-Net** — the proposed architecture
+2. **ANN-MLP** — deterministic baseline matching GPU attention (Table 1 row)
+3. **Rate-coded SNN** — temporal coding control (inspired by Tavanaei et al., 2018)
 
 This controls for:
 
-* Network capacity (parameter count matched within ±20%)
-* Training data (same seed-controlled splits)
-* Preprocessing (same normalization and encoding)
-* Evaluation metrics (identical test-set predictions)
+1. Network capacity (parameter count matched within ±20%)
+2. Training data (same seed-controlled splits)
+3. Preprocessing (same normalization and encoding)
+4. Evaluation metrics (identical test-set predictions)
 
 ### 5.5 Multi-Metric Evaluation
 
@@ -374,14 +327,7 @@ Beyond accuracy alone, each model is scored on:
 | Aleatoric uncertainty            | Irreducible data ambiguity            | Informs data quality decisions     |
 | Convergence iterations           | Bidirectional loop steps              | Validates Theorem 3.6              |
 
-### 5.6 Reproducibility Discipline
 
-* **Deterministic seeding** across `random`, `numpy`, `torch`, CUDA (via `utils.set_seed()`)
-* **Fixed train/val/test split** via seeded `random_split`
-* **Git commit hash** stored with each experiment in the database
-* **Full config snapshot** stored as YAML in `experiments.config_yaml`
-* **Pinned dependencies** prevent version drift (`requirements.txt` + Docker base image)
-* **Parquet immutability** — each experiment's predictions are a versioned snapshot
 
 ### 5.7 Statistical Honesty
 
@@ -391,6 +337,9 @@ Beyond accuracy alone, each model is scored on:
 * Single-seed runs for initial validation; multi-seed harness ready for final reporting
 
 ### 5.8 Scientific Report Standards
+
+<img width="953" height="452" alt="image" src="https://github.com/user-attachments/assets/17cc05a1-618c-4adc-8ee9-520d61f12690" />
+
 
 The auto-generated PDF follows CNRS/INRIA documentation structure:
 
@@ -405,21 +354,6 @@ The auto-generated PDF follows CNRS/INRIA documentation structure:
 
 Every figure is captioned with the equation it validates.
 
-### 5.9 Connection to Prior Work
-
-No silent borrowing — every theoretical influence documented in both code comments and module docstrings:
-
-```python
-"""
-Component 1: Native Event Encoding (BEAM-Net §3.1)
-=====================================================
-...
-Connection to W-TCRL (Fois & Girau, 2023):
-  Population-based latency coding from W-TCRL §2.2 uses Gaussian 
-  receptive fields to distribute each input dimension across 
-  l neurons, encoding values in relative spike latencies.
-"""
-```
 
 ---
 
@@ -463,45 +397,7 @@ Analysis & Reporting
          └──► DuckDB ──► Queries Parquet directly ──► pandas DataFrame ──► plots
 ```
 
-### 6.4 Compression Wins
 
-With **ZSTD compression** on numerical scientific data:
-
-* CSV format: ~850 MB per 10M prediction rows
-* PostgreSQL: ~600 MB per 10M rows
-* **Parquet + ZSTD: ~65 MB per 10M rows** (10× reduction)
-
-For spike rasters (high sparsity), storing only non-zero events in sparse long format gives an additional ~100× reduction.
-
-### 6.5 Query Engine: DuckDB
-
-DuckDB is the ideal companion for this architecture:
-
-* **Zero-server** : no separate service to manage
-* **Native S3/MinIO support** via the `httpfs` extension
-* **Predicate pushdown** : reads only the Parquet columns/rows actually needed
-* **Hive partition awareness** : prunes irrelevant files automatically
-* **SQL interface** familiar to both engineers and scientists
-
-Example query reading directly from MinIO:
-
-```python
-analyzer = BeamNetAnalyzer()
-df = analyzer.compare_models(dataset="nmnist")  # Scans all experiments
-```
-
-Under the hood, this executes:
-
-```sql
-SELECT model, AVG(CAST(is_correct AS DOUBLE)) AS accuracy, ...
-FROM read_parquet('s3://beam-net-results/predictions/dataset=nmnist/**/*.parquet',
-                  hive_partitioning=1)
-GROUP BY model
-```
-
-No data loaded into memory until the aggregation completes.
-
----
 
 ## 7. Infrastructure Services
 
@@ -548,17 +444,7 @@ Nine Docker Compose services orchestrate the platform:
 
 ## 8. Database Schema
 
-Three logical databases hosted by the single Postgres instance:
 
-### 8.1 `airflow` (managed by Airflow)
-
-Standard Airflow metadata schema. Do not modify.
-
-### 8.2 `mlflow` (managed by MLflow)
-
-Standard MLflow backend schema. Do not modify.
-
-### 8.3 `beam_metrics` (custom, maintained via migrations)
 
 **Core tables:**
 
@@ -580,11 +466,6 @@ Standard MLflow backend schema. Do not modify.
 | `experiment_summary` | Denormalized latest-epoch metrics per experiment   |
 | `energy_comparison`  | Table 1 reproduction with reduction factors vs GPU |
 
- **Migrations are idempotent and versioned** :
-
-* `V001__beam_metrics_schema.sql` — core tables
-* `V002__add_indexes.sql` — performance indexes at scale
-* `V003__add_energy_tracking.sql` — enhanced energy schema with hardware reference
 
 ---
 

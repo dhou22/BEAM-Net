@@ -28,18 +28,19 @@
 
 ## Table of Contents
 
-1. [Scientific Motivation](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#1-scientific-motivation)
-2. [Architecture Overview](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#2-architecture-overview)
-3. [Project Structure](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#3-project-structure)
-4. [Industrial Standards Adopted](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#4-industrial-standards-adopted)
-5. [Scientific Rigour Adopted](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#5-scientific-rigour-adopted)
-6. [Data Platform Design (Lakehouse Pattern)](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#6-data-platform-design-lakehouse-pattern)
-7. [Infrastructure Services](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#7-infrastructure-services)
-8. [Database Schema](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#8-database-schema)
-9. [Quick Start](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#9-quick-start)
-10. [Running Experiments](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#10-running-experiments)
-11. [Expected Results](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#11-expected-results)
-12. [References](https://claude.ai/chat/72ec1847-3d49-4617-938b-110e1a5725f0#13-references)
+1. [Scientific Motivation](#1-scientific-motivation)
+2. [Architecture Overview](#2-architecture-overview)
+3. [Project Structure](#3-project-structure)
+4. [Industrial Standards Adopted](#4-industrial-standards-adopted)
+5. [Scientific Rigour Adopted](#5-scientific-rigour-adopted)
+6. [Data Platform Design (Lakehouse Pattern)](#6-data-platform-design-lakehouse-pattern)
+7. [Infrastructure Services](#7-infrastructure-services)
+8. [Database Schema](#8-database-schema)
+9. [Quick Start](#9-quick-start)
+10. [Running Experiments](#10-running-experiments)
+11. [Experimental Results](#11-experimental-results)
+12. [References](#12-references)
+13. [License & Contact](#license--contact)
 
 ---
 
